@@ -124,14 +124,26 @@ public class Client {
                             s.nextLine();
                         } else {
                             // Per ogni operazione, crea e avvia un OperazioneThread
-
                             screen.clear();
+                            ArrayList<OperazioneThread> threads = new ArrayList<>();
                             System.out.println("----- RISULTATI OTTENUTI DAL SERVER -----");
                             for(Operazione op : listaOperazioni) {
                                 OperazioneThread t = new OperazioneThread(op, "localhost", 5000);
+                                threads.add(t);
                                 t.start();   // Avvio del thread
                             }
 
+                            // Aspetto che tutti i thread finiscano la propria esecuzione
+                            for(OperazioneThread t : threads) {
+                                try {
+                                    t.join(); // aspetta che il thread finisca
+                                } catch(InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+
+                            listaOperazioni.clear();
+                            
                             System.out.println("\n\nPremi INVIO per continuare...");
                             s.nextLine();
                         }
@@ -150,7 +162,6 @@ public class Client {
             } while(option != 4);   // Ripete finché l’utente non sceglie "Esci"
 
             screen.clear();
-            System.out.println("Terminazione.");
 
         } catch(Exception e) {
             // Gestione errori generali (connessione, I/O, ecc.)
