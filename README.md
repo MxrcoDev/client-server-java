@@ -30,8 +30,6 @@
 ---
 
 ## 🔧 How To Run
-### On Linux / macOS
-1. Open a terminal in the project folder.  
-2. Make the shell script executable:
-```bash
-chmod +x start.sh
+### On Windows
+1. Open the project folder.  
+2. Run `start.bat` to compile and launch the server and client.  
