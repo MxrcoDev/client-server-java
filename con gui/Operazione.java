@@ -1,34 +1,28 @@
-public class Operazione {
-    
-    private double a;
-    private double b;
-    private String op;
+import java.io.Serializable;   // Importa l'interfaccia per rendere la classe serializzabile
 
-    public Operazione(double a, double b,String op) {
+public class Operazione implements Serializable {  
+    // La classe implementa Serializable perché deve essere inviata tramite rete
+    // Serializzare = trasformare l'oggetto in una sequenza di byte
+
+    private static final long serialVersionUID = 1L;
+    // Versione della classe per la serializzazione
+    // Serve a garantire compatibilità durante la lettura degli oggetti
+
+    public String tipo;      // Tipo di operazione: "+", "-", "*", "/"
+    public double a;         // Primo operando
+    public double b;         // Secondo operando
+
+    // Costruttore: inizializza tutti i campi
+    public Operazione(String tipo, double a, double b) {
+        this.tipo = tipo;
         this.a = a;
         this.b = b;
-        this.op=op;
     }
 
-    public double risultato() {
-        return switch(op) {
-            case "+" -> a + b;
-            case "-" -> a - b;
-            case "*" -> a * b;
-            case "/" -> {
-                if(b == 0)
-                    throw new ArithmeticException("Divisione per zero");
-                else if (a == 0 && b == 0) {
-                    System.out.println("Indeterminato");
-                }
-                    yield a / b;
-            }
-            default -> throw new IllegalArgumentException("Operatore non valido");
-        };
-    }
-
+    @Override
     public String toString() {
-        return a+" "+op+" "+b;
+        // Restituisce una rappresentazione leggibile dell'operazione
+        // Esempio: "5 + 3"
+        return a + " " + tipo + " " + b;
     }
-
 }
