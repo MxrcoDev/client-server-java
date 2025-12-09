@@ -12,12 +12,18 @@ public class Client {
     private static CardLayout cardLayout;
     private static JPanel mainPanel;
 
+    // Variabili per gestire le operazioni
     static Queue<Operazione> listaOperazioni = new LinkedList<>();
     static java.util.List<String> listaRisultati = new ArrayList<>();
-
     // Variabili per indicare l'indice della prima e dell'ultima operazione di un burst di invio
     static int primaOperazione = 0;
     static int ultimaOperazione = 0;
+
+    // Variabili per la chat
+    static Queue<Messaggio> listaMessaggi = new LinkedList<>();
+    public static boolean onChat = false;
+    private static volatile Object ultimaRisposta = null;
+    private static final Object lockRisposta = new Object();
 
     // Stream globali per mantenere la connessione aperta
     private static ObjectOutputStream outObj;
@@ -88,161 +94,228 @@ public class Client {
     }
 
     // ------------------------------------------------------
-    //   VISUALIZZA OPERAZIONI
+    //   SCHERMATA CHAT
     // ------------------------------------------------------
+    private static JPanel chatMessagesPanel;
+    private static JScrollPane chatScrollPane;
+    private static int localClientId = 0;
 
-    private static JPanel nuovaPagina;
-    private static JPanel listPanel;
-    
-    public static JPanel listaOperazioni() {
-        nuovaPagina = new JPanel(new BorderLayout());
-        nuovaPagina.setBackground(BG_DARK);
-        nuovaPagina.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-    
-        JLabel title = new JLabel("Operazioni in coda", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        title.setForeground(TEXT_LIGHT);
-        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
-        nuovaPagina.add(title, BorderLayout.NORTH);
-    
-        listPanel = new JPanel();
-        listPanel.setBackground(BG_DARK);
-        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
-    
-        JScrollPane scroll = new JScrollPane(listPanel);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.getViewport().setBackground(BG_DARK);
-        nuovaPagina.add(scroll, BorderLayout.CENTER);
-    
-        JPanel bottom = new JPanel();
-        bottom.setBackground(BG_DARK);
-        bottom.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
-    
-        JButton back = modernButton("← Torna al menu");
-        back.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
-        bottom.add(back);
-    
-        nuovaPagina.add(bottom, BorderLayout.SOUTH);
-    
-        return nuovaPagina;
-    }
-    
-    public static void aggiornaListaOperazioni() {
-        listPanel.removeAll();
-    
-        if (listaOperazioni.isEmpty()) {
-            JLabel emptyLabel = new JLabel("Nessuna operazione in coda.");
-            emptyLabel.setForeground(TEXT_SECONDARY);
-            emptyLabel.setFont(MODERN);
-            emptyLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-            listPanel.add(emptyLabel);
-        } else {
-            for (Operazione o : listaOperazioni) {
-                JLabel label = new JLabel(o.toString());
-                label.setForeground(TEXT_LIGHT);
-                label.setFont(MODERN);
-                label.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-                listPanel.add(label);
-            }
-        }
-    
-        listPanel.revalidate();
-        listPanel.repaint();
-    }
+    public static JPanel chatPanel() {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(BG_DARK);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-    // ------------------------------------------------------
-    //   VISUALIZZA RISULTATI
-    // ------------------------------------------------------
-    
-    private static JPanel risultatiPagina;
-    private static JPanel resultsPanel;
-    
-    public static JPanel visualizzaRisultati() {
-        risultatiPagina = new JPanel(new BorderLayout());
-        risultatiPagina.setBackground(BG_DARK);
-        risultatiPagina.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-    
         // Titolo
-        JLabel title = new JLabel("Risultati Operazioni", SwingConstants.CENTER);
+        JLabel title = new JLabel("Chat Condivisa - Client " + localClientId, SwingConstants.CENTER);
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         title.setForeground(TEXT_LIGHT);
-        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
-        risultatiPagina.add(title, BorderLayout.NORTH);
-    
-        // Pannello scrollabile per i risultati
-        resultsPanel = new JPanel();
-        resultsPanel.setBackground(BG_DARK);
-        resultsPanel.setLayout(new BoxLayout(resultsPanel, BoxLayout.Y_AXIS));
-    
-        JScrollPane scroll = new JScrollPane(resultsPanel);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.getViewport().setBackground(BG_DARK);
-        risultatiPagina.add(scroll, BorderLayout.CENTER);
-    
-        // Pannello inferiore con bottone per tornare al menu
-        JPanel bottom = new JPanel();
-        bottom.setBackground(BG_DARK);
-        bottom.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
-    
-        JButton back = modernButton("← Torna al menu");
-        back.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
-        bottom.add(back);
-    
-        risultatiPagina.add(bottom, BorderLayout.SOUTH);
-    
-        return risultatiPagina;
+        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        panel.add(title, BorderLayout.NORTH);
+
+        // Area messaggi
+        chatMessagesPanel = new JPanel();
+        chatMessagesPanel.setBackground(DISPLAY_BG);
+        chatMessagesPanel.setLayout(new BoxLayout(chatMessagesPanel, BoxLayout.Y_AXIS));
+        chatMessagesPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        chatScrollPane = new JScrollPane(chatMessagesPanel);
+        chatScrollPane.setBorder(BorderFactory.createLineBorder(BORDER_SUBTLE, 1));
+        chatScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        chatScrollPane.getViewport().setBackground(DISPLAY_BG);
+        panel.add(chatScrollPane, BorderLayout.CENTER);
+
+        // Pannello inferiore (input + bottoni)
+        JPanel bottomPanel = new JPanel(new BorderLayout(10, 10));
+        bottomPanel.setBackground(BG_DARK);
+
+        JTextField inputField = new JTextField();
+        inputField.setFont(MODERN);
+        inputField.setBackground(DISPLAY_BG);
+        inputField.setForeground(TEXT_LIGHT);
+        inputField.setCaretColor(TEXT_LIGHT);
+        inputField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_SUBTLE, 1, true),
+            BorderFactory.createEmptyBorder(10, 15, 10, 15)
+        ));
+
+        JPanel buttonsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+        buttonsPanel.setBackground(BG_DARK);
+
+        JButton sendBtn = modernButton("Invia", true);
+        JButton backBtn = modernButton("Menu");
+
+        buttonsPanel.add(backBtn);
+        buttonsPanel.add(sendBtn);
+
+        bottomPanel.add(inputField, BorderLayout.CENTER);
+        bottomPanel.add(buttonsPanel, BorderLayout.SOUTH);
+
+        panel.add(bottomPanel, BorderLayout.SOUTH);
+
+        // Listener per inviare messaggio
+        ActionListener sendAction = e -> {
+            String testo = inputField.getText().trim();
+            if (!testo.isEmpty()) {
+                inviaMessaggio(testo);
+                inputField.setText("");
+            }
+        };
+
+        sendBtn.addActionListener(sendAction);
+        inputField.addActionListener(sendAction);
+
+        // Listener per tornare al menu
+        backBtn.addActionListener(e -> {
+            onChat = false;
+            listaMessaggi.clear();
+            cardLayout.show(mainPanel, "menu");
+        });
+
+        return panel;
     }
-    
-    public static void aggiornaListaRisultati() {
-        resultsPanel.removeAll();
-        
-        // Popola i risultati
-        if (listaRisultati.isEmpty()) {
-            JLabel emptyLabel = new JLabel("Nessun risultato disponibile.");
-            emptyLabel.setForeground(TEXT_SECONDARY);
-            emptyLabel.setFont(MODERN);
-            emptyLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-            resultsPanel.add(emptyLabel);
-        } else {
-            // Risultati storici (se esistono)
-            if (primaOperazione > 0) {
-                JLabel storicoLabel = new JLabel("----- RISULTATI STORICI -----");
-                storicoLabel.setForeground(BTN_ACCENT);
-                storicoLabel.setFont(MODERN_BOLD);
-                storicoLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 5, 0));
-                resultsPanel.add(storicoLabel);
-    
-                for (int i = 0; i < primaOperazione; i++) {
-                    JLabel label = new JLabel(listaRisultati.get(i));
-                    label.setForeground(TEXT_LIGHT);
-                    label.setFont(MODERN);
-                    label.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 10));
-                    resultsPanel.add(label);
+
+    public static void aggiornaChat() {
+        SwingUtilities.invokeLater(() -> {
+            chatMessagesPanel.removeAll();
+
+            for (Messaggio msg : listaMessaggi) {
+                JPanel msgPanel = new JPanel();
+                msgPanel.setLayout(new BoxLayout(msgPanel, BoxLayout.Y_AXIS));
+                msgPanel.setBackground(DISPLAY_BG);
+                msgPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+
+                boolean isMine = (msg.getMittente() == localClientId);
+
+                JLabel msgLabel = new JLabel("<html><div style='padding:8px;'>" +
+                    "<b style='color:" + (isMine ? "#0a84ff" : "#ff9f0a") + ";'>" +
+                    "Client " + msg.getMittente() + "</b><br>" +
+                    "<span style='color:#f5f5f7;'>" + msg.getTesto() + "</span>" +
+                    "</div></html>");
+                
+                msgLabel.setOpaque(true);
+                msgLabel.setBackground(isMine ? new Color(38, 38, 42) : new Color(48, 48, 52));
+                msgLabel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER_SUBTLE, 1, true),
+                    BorderFactory.createEmptyBorder(5, 10, 5, 10)
+                ));
+
+                msgPanel.add(msgLabel);
+                msgPanel.setAlignmentX(isMine ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT);
+                
+                chatMessagesPanel.add(msgPanel);
+            }
+
+            chatMessagesPanel.revalidate();
+            chatMessagesPanel.repaint();
+
+            // Scroll automatico in fondo
+            SwingUtilities.invokeLater(() -> {
+                JScrollBar vertical = chatScrollPane.getVerticalScrollBar();
+                vertical.setValue(vertical.getMaximum());
+            });
+        });
+    }
+
+    private static void inviaMessaggio(String testo) {
+        new Thread(() -> {
+            try {
+                Messaggio msg = new Messaggio(localClientId, testo);
+                
+                outObj.writeObject(msg);
+                outObj.flush();
+                
+                // Attendi conferma usando il sistema di risposte
+                Object risposta = attendiRisposta();
+                if (risposta instanceof String && risposta.equals("MSG_OK")) {
+                    // Aggiungi il messaggio anche localmente
+                    listaMessaggi.add(msg);
+                    aggiornaChat();
+                } else {
+                    System.err.println("Conferma non valida: " + risposta);
+                }
+            } catch (Exception e) {
+                System.err.println("Errore durante invio messaggio: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private static void richiediCoda() {
+        new Thread(() -> {
+            try {
+                outObj.writeObject("RICHIESTA_CODA");
+                outObj.flush();
+                
+                Object risposta = attendiRisposta();
+                
+                if (risposta instanceof Queue) {
+                    @SuppressWarnings("unchecked")
+                    Queue<Messaggio> codaRicevuta = (Queue<Messaggio>) risposta;
+                    
+                    listaMessaggi.clear();
+                    listaMessaggi.addAll(codaRicevuta);
+                    aggiornaChat();
+                } else {
+                    System.err.println("Risposta coda non valida: " + (risposta != null ? risposta.getClass() : "null"));
+                }
+            } catch (Exception e) {
+                System.err.println("Errore richiesta coda: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    // Sistema di attesa risposta sincronizzato
+    private static Object attendiRisposta() throws InterruptedException {
+        synchronized(lockRisposta) {
+            while (ultimaRisposta == null) {
+                lockRisposta.wait(5000); // Timeout di 5 secondi
+                if (ultimaRisposta == null) {
+                    throw new RuntimeException("Timeout attesa risposta");
                 }
             }
-    
-            // Ultimi risultati (se esistono)
-            if (primaOperazione < listaRisultati.size()) {
-                JLabel ultimiLabel = new JLabel("----- ULTIMI RISULTATI -----");
-                ultimiLabel.setForeground(BTN_ACCENT);
-                ultimiLabel.setFont(MODERN_BOLD);
-                ultimiLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 5, 0));
-                resultsPanel.add(ultimiLabel);
-        
-                for (int i = primaOperazione; i < listaRisultati.size(); i++) {
-                    JLabel label = new JLabel(listaRisultati.get(i));
-                    label.setForeground(TEXT_LIGHT);
-                    label.setFont(MODERN);
-                    label.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 10));
-                    resultsPanel.add(label);
-                }
-            }
+            Object risposta = ultimaRisposta;
+            ultimaRisposta = null;
+            return risposta;
         }
-        
-        resultsPanel.revalidate();
-        resultsPanel.repaint();
+    }
+
+    // Thread di ricezione GLOBALE che smista tutti i messaggi
+    private static void avviaThreadRicezione() {
+        Thread receiverThread = new Thread(() -> {
+            System.out.println("Thread di ricezione avviato per Client " + localClientId);
+            
+            while (true) {
+                try {
+                    Object obj = inObj.readObject();
+                    
+                    if (obj instanceof Messaggio) {
+                        // Messaggio broadcast - aggiorna la chat se siamo dentro
+                        Messaggio msg = (Messaggio) obj;
+                        if (onChat) {
+                            listaMessaggi.add(msg);
+                            aggiornaChat();
+                            System.out.println("Broadcast ricevuto: " + msg.get());
+                        }
+                    } else {
+                        // Risposta a una richiesta (String, Queue, ecc.)
+                        synchronized(lockRisposta) {
+                            ultimaRisposta = obj;
+                            lockRisposta.notify();
+                        }
+                    }
+                    
+                } catch (Exception e) {
+                    System.err.println("Errore nel thread di ricezione: " + e.getMessage());
+                    e.printStackTrace();
+                    break;
+                }
+            }
+            
+            System.out.println("Thread di ricezione terminato");
+        });
+        receiverThread.setDaemon(true);
+        receiverThread.start();
     }
 
     // ------------------------------------------------------
@@ -324,7 +397,7 @@ public class Client {
         JPanel bottom = new JPanel(new GridLayout(1, 2, 12, 0));
         bottom.setBackground(BG_DARK);
 
-        JButton back = modernButton("← Menu");
+        JButton back = modernButton("Menu");
         back.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
 
         JButton equals = modernButton("=", true);
@@ -339,13 +412,13 @@ public class Client {
                     Operazione operazione = new Operazione(op[0], a, b);
 
                     listaOperazioni.add(operazione);
-                    System.out.println("Operazione aggiunta: " + operazione);
+                    // System.out.println("Operazione aggiunta: " + operazione);
 
                     label.setText("");
                     op[0] = "";
                 }
             } catch (Exception ex) {
-                System.out.println("Errore nell'operazione: " + ex.getMessage());
+                // System.out.println("Errore nell'operazione: " + ex.getMessage());
             }
         });
 
@@ -358,9 +431,201 @@ public class Client {
     }
 
     // ------------------------------------------------------
+    //   VISUALIZZA OPERAZIONI
+    // ------------------------------------------------------
+    private static JPanel nuovaPagina;
+    private static JPanel listPanel;
+    
+    public static JPanel listaOperazioni() {
+        nuovaPagina = new JPanel(new BorderLayout());
+        nuovaPagina.setBackground(BG_DARK);
+        nuovaPagina.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+    
+        JLabel title = new JLabel("Operazioni in coda", SwingConstants.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setForeground(TEXT_LIGHT);
+        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        nuovaPagina.add(title, BorderLayout.NORTH);
+    
+        listPanel = new JPanel();
+        listPanel.setBackground(BG_DARK);
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+    
+        JScrollPane scroll = new JScrollPane(listPanel);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.getViewport().setBackground(BG_DARK);
+        nuovaPagina.add(scroll, BorderLayout.CENTER);
+    
+        JPanel bottom = new JPanel();
+        bottom.setBackground(BG_DARK);
+        bottom.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+    
+        JButton back = modernButton("Torna al menu");
+        back.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
+        bottom.add(back);
+    
+        nuovaPagina.add(bottom, BorderLayout.SOUTH);
+    
+        return nuovaPagina;
+    }
+    
+    public static void aggiornaListaOperazioni() {
+        listPanel.removeAll();
+    
+        if (listaOperazioni.isEmpty()) {
+            JLabel emptyLabel = new JLabel("Nessuna operazione in coda.");
+            emptyLabel.setForeground(TEXT_SECONDARY);
+            emptyLabel.setFont(MODERN);
+            emptyLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+            listPanel.add(emptyLabel);
+        } else {
+            for (Operazione o : listaOperazioni) {
+                JLabel label = new JLabel(o.toString());
+                label.setForeground(TEXT_LIGHT);
+                label.setFont(MODERN);
+                label.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+                listPanel.add(label);
+            }
+        }
+    
+        listPanel.revalidate();
+        listPanel.repaint();
+    }
+
+    // ------------------------------------------------------
+    //   INVIA OPERAZIONI
+    // ------------------------------------------------------
+    public static void inviaOperazioni() {
+        if(!listaOperazioni.isEmpty()) {
+            primaOperazione = ultimaOperazione;
+    
+            int count = 0;
+            for(Operazione op : listaOperazioni) {
+                try {
+                    count++;
+                    
+                    outObj.writeObject(op);
+                    outObj.flush();
+    
+                    // Usa il nuovo sistema di attesa risposta
+                    Object risposta = attendiRisposta();
+                    if (risposta instanceof String) {
+                        String risultato = (String) risposta;
+                        listaRisultati.add(risultato);
+                    } else {
+                        System.err.println("Risposta operazione non valida: " + risposta);
+                    }
+                } catch(Exception e) {
+                    System.err.println("ERRORE durante operazione #" + count + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+    
+            ultimaOperazione = listaRisultati.size();
+            listaOperazioni.clear();
+        }
+    }
+
+    // ------------------------------------------------------
+    //   VISUALIZZA RISULTATI
+    // ------------------------------------------------------
+    private static JPanel risultatiPagina;
+    private static JPanel resultsPanel;
+    
+    public static JPanel visualizzaRisultati() {
+        risultatiPagina = new JPanel(new BorderLayout());
+        risultatiPagina.setBackground(BG_DARK);
+        risultatiPagina.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+    
+        // Titolo
+        JLabel title = new JLabel("Risultati Operazioni", SwingConstants.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setForeground(TEXT_LIGHT);
+        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        risultatiPagina.add(title, BorderLayout.NORTH);
+    
+        // Pannello scrollabile per i risultati
+        resultsPanel = new JPanel();
+        resultsPanel.setBackground(BG_DARK);
+        resultsPanel.setLayout(new BoxLayout(resultsPanel, BoxLayout.Y_AXIS));
+    
+        JScrollPane scroll = new JScrollPane(resultsPanel);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.getViewport().setBackground(BG_DARK);
+        risultatiPagina.add(scroll, BorderLayout.CENTER);
+    
+        // Pannello inferiore con bottone per tornare al menu
+        JPanel bottom = new JPanel();
+        bottom.setBackground(BG_DARK);
+        bottom.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+    
+        JButton back = modernButton("Torna al menu");
+        back.addActionListener(e -> cardLayout.show(mainPanel, "menu"));
+        bottom.add(back);
+    
+        risultatiPagina.add(bottom, BorderLayout.SOUTH);
+    
+        return risultatiPagina;
+    }
+    
+    public static void aggiornaListaRisultati() {
+        resultsPanel.removeAll();
+        
+        // Popola i risultati
+        if (listaRisultati.isEmpty()) {
+            JLabel emptyLabel = new JLabel("Nessun risultato disponibile.");
+            emptyLabel.setForeground(TEXT_SECONDARY);
+            emptyLabel.setFont(MODERN);
+            emptyLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+            resultsPanel.add(emptyLabel);
+        } else {
+            // Risultati storici (se esistono)
+            if (primaOperazione > 0) {
+                JLabel storicoLabel = new JLabel("----- RISULTATI STORICI -----");
+                storicoLabel.setForeground(BTN_ACCENT);
+                storicoLabel.setFont(MODERN_BOLD);
+                storicoLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 5, 0));
+                resultsPanel.add(storicoLabel);
+    
+                for (int i = 0; i < primaOperazione; i++) {
+                    JLabel label = new JLabel(listaRisultati.get(i));
+                    label.setForeground(TEXT_LIGHT);
+                    label.setFont(MODERN);
+                    label.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 10));
+                    resultsPanel.add(label);
+                }
+            }
+    
+            // Ultimi risultati (se esistono)
+            if (primaOperazione < listaRisultati.size()) {
+                JLabel ultimiLabel = new JLabel("----- ULTIMI RISULTATI -----");
+                ultimiLabel.setForeground(BTN_ACCENT);
+                ultimiLabel.setFont(MODERN_BOLD);
+                ultimiLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 5, 0));
+                resultsPanel.add(ultimiLabel);
+        
+                for (int i = primaOperazione; i < listaRisultati.size(); i++) {
+                    JLabel label = new JLabel(listaRisultati.get(i));
+                    label.setForeground(TEXT_LIGHT);
+                    label.setFont(MODERN);
+                    label.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 10));
+                    resultsPanel.add(label);
+                }
+            }
+        }
+        
+        resultsPanel.revalidate();
+        resultsPanel.repaint();
+    }
+
+    // ------------------------------------------------------
     //   MENU PRINCIPALE
     // ------------------------------------------------------
     public static JPanel menuPanel(int id) {
+
+        localClientId = id;
 
         JPanel menu = new JPanel(new BorderLayout());
         menu.setBackground(BG_DARK);
@@ -422,6 +687,13 @@ public class Client {
         op4.addActionListener(e -> {
             aggiornaListaRisultati();
             cardLayout.show(mainPanel, "risultati");
+        });
+
+        // Nella parte con op5.addActionListener
+        op5.addActionListener(e -> {
+            onChat = true;
+            richiediCoda();
+            cardLayout.show(mainPanel, "chat");
         });
 
         op6.addActionListener(e -> {
@@ -521,91 +793,40 @@ public class Client {
     }
 
     // ------------------------------------------------------
-    //   INVIA OPERAZIONI
-    // ------------------------------------------------------
-    public static void inviaOperazioni() {
-        System.out.println("=== INIZIO inviaOperazioni ===");
-        System.out.println("Numero operazioni nella coda: " + listaOperazioni.size());
-        System.out.println("Socket null? " + (socket == null));
-        System.out.println("Socket closed? " + (socket != null ? socket.isClosed() : "N/A"));
-        System.out.println("outObj null? " + (outObj == null));
-        System.out.println("inObj null? " + (inObj == null));
-        
-        if(!listaOperazioni.isEmpty()) {
-            primaOperazione = ultimaOperazione;
-
-            System.out.println("Invio " + listaOperazioni.size() + " operazioni al server...");
-
-            int count = 0;
-            for(Operazione op : listaOperazioni) {
-                try {
-                    count++;
-                    System.out.println("\n--- Operazione #" + count + " ---");
-                    System.out.println("Operazione da inviare: " + op);
-                    System.out.println("Tipo: " + op.tipo + ", a=" + op.a + ", b=" + op.b);
-                    
-                    System.out.println("Prima di writeObject...");
-                    outObj.writeObject(op);
-                    System.out.println("Dopo writeObject, prima di flush...");
-                    outObj.flush();
-                    System.out.println("Dopo flush, in attesa di risposta...");
-
-                    // Riceve risultato
-                    String risultato = (String) inObj.readObject();
-                    System.out.println("Risposta ricevuta: " + risultato);
-
-                    listaRisultati.add(risultato);
-                    System.out.println("Risultato aggiunto alla lista");
-                } catch(Exception e) {
-                    System.err.println("ERRORE durante operazione #" + count);
-                    System.err.println("Tipo errore: " + e.getClass().getName());
-                    System.err.println("Messaggio: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-
-            ultimaOperazione = listaRisultati.size();
-            listaOperazioni.clear();
-            
-            System.out.println("\n=== Invio completato! ===");
-        } else {
-            System.out.println("Nessuna operazione da inviare (lista vuota)");
-        }
-    }
-
-    // ------------------------------------------------------
     //                      MAIN
     // ------------------------------------------------------
     public static void main(String[] args) {
         try {
-            // Crea la connessione SENZA try-with-resources
             socket = new Socket("localhost", 5000);
             outObj = new ObjectOutputStream(socket.getOutputStream());
             inObj = new ObjectInputStream(socket.getInputStream());
-
-            // Ricevi l'ID del client
+    
             int clientId = (Integer) inObj.readObject();
+            localClientId = clientId;
             System.out.println("Connesso al server con ID: " + clientId);
             
-            // Crea la GUI
+            // Avvia il thread di ricezione GLOBALE
+            avviaThreadRicezione();
+            
             SwingUtilities.invokeLater(() -> {
                 JFrame frame = new JFrame();
                 frame.setSize(470, 600);
                 frame.setUndecorated(true);
                 frame.setResizable(false);
                 frame.setLayout(new BorderLayout());
-
+    
                 cardLayout = new CardLayout();
                 mainPanel = new JPanel(cardLayout);
-
+    
                 mainPanel.add(menuPanel(clientId), "menu");
                 mainPanel.add(calcolatricePanel(), "calc");
                 mainPanel.add(listaOperazioni(), "nuova");
                 mainPanel.add(visualizzaRisultati(), "risultati");
-
+                mainPanel.add(chatPanel(), "chat");
+    
                 frame.add(intestazione(frame), BorderLayout.NORTH);
                 frame.add(mainPanel, BorderLayout.CENTER);
-
+    
                 frame.setLocationRelativeTo(null);
                 frame.setVisible(true);
             });

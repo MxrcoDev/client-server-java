@@ -126,19 +126,19 @@ public class Server {
             try {
                 outObj = new ObjectOutputStream(clientSocket.getOutputStream());
                 inObj = new ObjectInputStream(clientSocket.getInputStream());
-
+        
                 outObj.writeObject(clientId);
                 outObj.flush();
-
+        
                 System.out.println("Client " + clientId + " pronto: " + clientSocket.getInetAddress());
-
+        
                 while (running) {
                     try {
                         Object obj = inObj.readObject();
-
+        
                         if (obj instanceof Operazione) {
                             Operazione op = (Operazione) obj;
-
+        
                             double risultato = switch (op.tipo) {
                                 case "+" -> op.a + op.b;
                                 case "-" -> op.a - op.b;
@@ -146,37 +146,71 @@ public class Server {
                                 case "/" -> op.b != 0 ? (double) op.a / op.b : 0;
                                 default -> 0;
                             };
-
-                            System.out.println("[ CALC ] " + op.toString() + " = " + risultato);
-                            outObj.writeObject(op.toString() + " = " + risultato);
-                            outObj.flush();
+        
+                            System.out.println("[ CALC ] Client " + clientId + ": " + op.toString() + " = " + risultato);
+                            
+                            synchronized(outObj) {
+                                outObj.writeObject(op.toString() + " = " + risultato);
+                                outObj.flush();
+                            }
                         }
                         else if (obj instanceof Messaggio) {
                             Messaggio msg = (Messaggio) obj;
-                            chatBuffer.put(msg);
-
-                            outObj.writeObject("MSG_OK");
-                            outObj.flush();
+                            
+                            synchronized(chatBuffer) {
+                                chatBuffer.put(msg);
+                            }
+                            
+                            System.out.println("[ CHAT ] " + msg.get());
+                            
+                            // Prima invia conferma al mittente
+                            synchronized(outObj) {
+                                outObj.writeObject("MSG_OK");
+                                outObj.flush();
+                            }
+                            
+                            // Poi broadcast a tutti gli ALTRI client
+                            broadcastMessaggio(msg);
                         }
                         else if (obj instanceof String) {
                             String cmd = (String) obj;
                             if(cmd.equals("RICHIESTA_CODA")) {
+                                System.out.println("[ CHAT ] Client " + clientId + " richiede la coda");
                                 inviaCodata();
                             }
                         }
-
+        
                     } catch (EOFException e) {
                         System.out.println("Client " + clientId + " disconnesso.");
                         break;
                     }
                 }
-
+        
             } catch (Exception e) {
-                System.out.println("Client " + clientId + " disconnesso.");
+                System.out.println("Client " + clientId + " disconnesso: " + e.getMessage());
             } finally {
                 running = false;
                 clientHandlers.remove(this);
                 try { clientSocket.close(); } catch (Exception ignored) {}
+            }
+        }
+        
+        private void broadcastMessaggio(Messaggio msg) {
+            synchronized(clientHandlers) {
+                for (ClientHandler handler : clientHandlers) {
+                    if (handler.clientId != this.clientId) { // Non rimandare al mittente
+                        try {
+                            synchronized(handler.outObj) {
+                                handler.outObj.reset();
+                                handler.outObj.writeObject(msg);
+                                handler.outObj.flush();
+                            }
+                            System.out.println("[ BROADCAST ] Messaggio inviato a Client " + handler.clientId);
+                        } catch (IOException e) {
+                            System.err.println("[ ERROR ] Errore broadcast a client " + handler.clientId + ": " + e.getMessage());
+                        }
+                    }
+                }
             }
         }
     }
