@@ -129,6 +129,7 @@ public class Server {
                                     break;
                             }
 
+                            System.out.println(op.toString() + " = " + risultato);
 
                             // Invia la stringa risultato al client
                             outObj.writeObject(op.toString() + " = " + risultato);
