@@ -139,13 +139,25 @@ public class Server {
                         if (obj instanceof Operazione) {
                             Operazione op = (Operazione) obj;
         
-                            double risultato = switch (op.tipo) {
-                                case "+" -> op.a + op.b;
-                                case "-" -> op.a - op.b;
-                                case "*" -> op.a * op.b;
-                                case "/" -> op.b != 0 ? (double) op.a / op.b : 0;
-                                default -> 0;
-                            };
+                            double risultato;
+                            switch (op.tipo) {
+                                case "+":
+                                    risultato = op.a + op.b;
+                                    break;
+                                case "-":
+                                    risultato = op.a - op.b;
+                                    break;
+                                case "*":
+                                    risultato = op.a * op.b;
+                                    break;
+                                case "/":
+                                    risultato = op.b != 0 ? (double) op.a/op.b : 0;
+                                    break;
+                                default:
+                                    risultato = 0;
+                                    break;
+                            }
+
         
                             System.out.println("[ CALC ] Client " + clientId + ": " + op.toString() + " = " + risultato);
                             

@@ -177,43 +177,103 @@ public class Client {
     public static void aggiornaChat() {
         SwingUtilities.invokeLater(() -> {
             chatMessagesPanel.removeAll();
-
+    
             for (Messaggio msg : listaMessaggi) {
                 JPanel msgPanel = new JPanel();
                 msgPanel.setLayout(new BoxLayout(msgPanel, BoxLayout.Y_AXIS));
                 msgPanel.setBackground(DISPLAY_BG);
                 msgPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
-
+    
                 boolean isMine = (msg.getMittente() == localClientId);
-
-                JLabel msgLabel = new JLabel("<html><div style='padding:8px;'>" +
-                    "<b style='color:" + (isMine ? "#0a84ff" : "#ff9f0a") + ";'>" +
-                    "Client " + msg.getMittente() + "</b><br>" +
-                    "<span style='color:#f5f5f7;'>" + msg.getTesto() + "</span>" +
-                    "</div></html>");
                 
-                msgLabel.setOpaque(true);
-                msgLabel.setBackground(isMine ? new Color(38, 38, 42) : new Color(48, 48, 52));
-                msgLabel.setBorder(BorderFactory.createCompoundBorder(
+                // Colore diverso per ogni client
+                Color mittenteColor = getColorForClient(msg.getMittente());
+    
+                // Pannello wrapper per contenere il messaggio
+                JPanel messageWrapper = new JPanel(new BorderLayout(0, 5));
+                messageWrapper.setBackground(isMine ? new Color(38, 38, 42) : new Color(48, 48, 52));
+                messageWrapper.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(BORDER_SUBTLE, 1, true),
-                    BorderFactory.createEmptyBorder(5, 10, 5, 10)
+                    BorderFactory.createEmptyBorder(10, 14, 10, 14)
                 ));
-
-                msgPanel.add(msgLabel);
-                msgPanel.setAlignmentX(isMine ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT);
                 
+                // Label per il mittente
+                JLabel mittenteLabel = new JLabel("Client " + msg.getMittente());
+                mittenteLabel.setFont(MODERN_BOLD);
+                mittenteLabel.setForeground(mittenteColor);
+                messageWrapper.add(mittenteLabel, BorderLayout.NORTH);
+                
+                // TextArea per il messaggio con scroll
+                JTextArea msgArea = new JTextArea(msg.getTesto());
+                msgArea.setFont(MODERN);
+                msgArea.setForeground(TEXT_LIGHT);
+                msgArea.setBackground(isMine ? new Color(38, 38, 42) : new Color(48, 48, 52));
+                msgArea.setEditable(false);
+                msgArea.setFocusable(false);
+                msgArea.setLineWrap(true);
+                msgArea.setWrapStyleWord(true);
+                msgArea.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+                
+                // Scroll per messaggi lunghi
+                JScrollPane msgScroll = new JScrollPane(msgArea);
+                msgScroll.setBorder(null);
+                msgScroll.setBackground(isMine ? new Color(38, 38, 42) : new Color(48, 48, 52));
+                msgScroll.getViewport().setBackground(isMine ? new Color(38, 38, 42) : new Color(48, 48, 52));
+                msgScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+                msgScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                
+                messageWrapper.add(msgScroll, BorderLayout.CENTER);
+                
+                // DIMENSIONE FISSA: larghezza e altezza
+                int maxWidth = 190;
+                int fixedHeight = 80;
+                messageWrapper.setPreferredSize(new Dimension(maxWidth, fixedHeight));
+                messageWrapper.setMinimumSize(new Dimension(maxWidth, fixedHeight));
+                messageWrapper.setMaximumSize(new Dimension(maxWidth, fixedHeight));
+                
+                // Wrapper per allineamento
+                JPanel alignWrapper = new JPanel();
+                alignWrapper.setLayout(new BoxLayout(alignWrapper, BoxLayout.X_AXIS));
+                alignWrapper.setBackground(DISPLAY_BG);
+                alignWrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, fixedHeight + 10));
+                
+                if (isMine) {
+                    alignWrapper.add(Box.createHorizontalGlue());
+                    alignWrapper.add(messageWrapper);
+                } else {
+                    alignWrapper.add(messageWrapper);
+                    alignWrapper.add(Box.createHorizontalGlue());
+                }
+                
+                msgPanel.add(alignWrapper);
+                msgPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, fixedHeight + 20));
                 chatMessagesPanel.add(msgPanel);
             }
-
+    
             chatMessagesPanel.revalidate();
             chatMessagesPanel.repaint();
-
+    
             // Scroll automatico in fondo
             SwingUtilities.invokeLater(() -> {
                 JScrollBar vertical = chatScrollPane.getVerticalScrollBar();
                 vertical.setValue(vertical.getMaximum());
             });
         });
+    }
+    
+    // Metodo helper per assegnare un colore diverso ad ogni client
+    private static Color getColorForClient(int clientId) {
+        Color[] colors = {
+            new Color(0, 168, 255),    // Blu
+            new Color(255, 159, 10),   // Arancione
+            new Color(52, 199, 89),    // Verde
+            new Color(255, 69, 58),    // Rosso
+            new Color(191, 90, 242),   // Viola
+            new Color(255, 214, 10),   // Giallo
+            new Color(100, 210, 255),  // Azzurro
+            new Color(255, 105, 180)   // Rosa
+        };
+        return colors[clientId % colors.length];
     }
 
     private static void inviaMessaggio(String testo) {
