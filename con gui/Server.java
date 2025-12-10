@@ -85,7 +85,7 @@ public class Server {
                 int clientId;
                 synchronized (Server.class) { clientId = ++clientCounter; }
 
-                System.out.println("Client connesso! ID = " + clientId);
+                System.out.print("\nClient connesso! ID = " + clientId);
 
                 ClientHandler handler = new ClientHandler(clientSocket, clientId);
                 clientHandlers.add(handler);
@@ -130,7 +130,7 @@ public class Server {
                 outObj.writeObject(clientId);
                 outObj.flush();
         
-                System.out.println("Client " + clientId + " pronto: " + clientSocket.getInetAddress());
+                System.out.print("\nClient " + clientId + " pronto: " + clientSocket.getInetAddress());
         
                 while (running) {
                     try {
@@ -159,7 +159,7 @@ public class Server {
                             }
 
         
-                            System.out.println("[ CALC ] Client " + clientId + ": " + op.toString() + " = " + risultato);
+                            System.out.print("\n[ CALC ] Client " + clientId + ": " + op.toString() + " = " + risultato);
                             
                             synchronized(outObj) {
                                 outObj.writeObject(op.toString() + " = " + risultato);
