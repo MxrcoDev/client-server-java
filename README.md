@@ -33,7 +33,7 @@ Clients can insert mathematical operations, send them to the server, and receive
 - **Serialization:** operations and messages are sent over the network as serializable Java objects.
 
 ## 🔧 How To Run
-### On Windows
+### On Windows (By file)
 1. Open the project folder.  
 2. Run `start.bat` to compile and launch the server and clients.  
 3. Follow the console menu to interact with the system.
@@ -43,4 +43,6 @@ Clients can insert mathematical operations, send them to the server, and receive
 2. Make sure `start.sh` is executable:  
 ```bash
 chmod +x start.sh
+```
+3. Follow the console menu to interact with the system.
 
