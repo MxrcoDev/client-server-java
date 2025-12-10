@@ -8,15 +8,20 @@ import java.util.Scanner;
 
 public class Client {
 
+    // Coda locale delle operazioni inserite dall'utente (non condivisa → no concorrenza)
     static Queue<Operazione> listaOperazioni = new LinkedList<>();
+
+    // Memorizza tutti i risultati ricevuti dal server
     static List<String> listaRisultati = new ArrayList<>();
 
-    // Variabili per indicare l'indice della prima e dell'ultima operazione di un burst di invio
+    // Indici per distinguere i risultati “vecchi” da quelli dell’ultimo invio
     static int primaOperazione = 0;
     static int ultimaOperazione = 0;
 
+    // Copia locale della chat condivisa sul server
     static Queue<Messaggio> listaMessaggi = new LinkedList<>();
 
+    // Menu per inserire le operazioni matematiche
     public static void inserisci(Scanner s, ClearScreen screen) {
         int option;
 
@@ -35,12 +40,14 @@ public class Client {
 
             if(option >= 1 && option <= 4) {
 
+                // Lettura dei due numeri da inviare al server
                 System.out.print("Primo numero: ");
                 int a = s.nextInt();
                 System.out.print("Secondo numero: ");
                 int b = s.nextInt();
                 s.nextLine();
 
+                // Determina il tipo di operazione
                 String tipo = "";
                 switch(option) {
                     case 1: tipo = "+"; break;
@@ -49,6 +56,7 @@ public class Client {
                     case 4: tipo = "/"; break;
                 }
 
+                // Aggiunge l’operazione alla coda locale
                 listaOperazioni.add(new Operazione(tipo, a, b));
                 System.out.println("Operazione aggiunta: " + a + " " + tipo + " " + b);
 
@@ -64,19 +72,26 @@ public class Client {
         } while(option != 5);
     }
 
+    // Richiede al server la coda dei messaggi della chat e la stampa
     public static void visualizzaMessaggi(ClearScreen screen, ObjectInputStream inObj, ObjectOutputStream outObj) {
 
         try {
+            // Richiesta esplicita della coda dei messaggi (operazione di lettura condivisa)
             outObj.writeObject("RICHIESTA_CODA"); 
             outObj.flush();
+
+            // Riceve la copia sincronizzata della coda dal server
             Object obj = inObj.readObject();
             if(obj instanceof Queue) {
                 Queue<Messaggio> coda = (Queue<Messaggio>) obj;
+
+                // Aggiorna la copia locale
                 listaMessaggi.clear();
                 listaMessaggi.addAll(coda);
             }
         } catch (Exception e) {}
 
+        // Stampa della chat
         screen.clear();
         System.out.println("----- CHAT -----");
         if (!listaMessaggi.isEmpty()) {
@@ -88,9 +103,11 @@ public class Client {
         System.out.print("\n\n'exit' per uscire | '1' per aggiornare >> ");
     }
     
+    // Gestione della chat lato client
     public static void chat(Scanner s, ClearScreen screen, ObjectInputStream inObj, ObjectOutputStream outObj, int clientId) {
         boolean exitChat = false;
         
+        // Mostra subito la chat aggiornata all’ingresso
         visualizzaMessaggi(screen, inObj, outObj);
     
         while(!exitChat) {
@@ -98,22 +115,25 @@ public class Client {
     
             if(text.equals("exit")) {
                 exitChat = true;
+
             } else if (text.equals("1")) {
+                // Aggiorna la chat richiedendo la coda al server
                 visualizzaMessaggi(screen, inObj, outObj);
+
             } else if(!text.trim().isEmpty()) {
                 
                 System.out.print("\nInvio in corso...");
                 
                 try {
-                    // Invia il messaggio
+                    // Invia un nuovo messaggio serializzato al server
                     outObj.writeObject(new Messaggio(clientId, text));
                     outObj.flush();
                     
-                    // ASPETTA LA CONFERMA DAL SERVER (con timeout)
+                    // Attende una conferma (evita invii doppi se ci sono ritardi)
                     Object conferma = inObj.readObject();
                     
                     if(conferma instanceof String && conferma.equals("MSG_OK")) {
-                        // Aggiorna la visualizzazione
+                        // Se tutto ok, aggiorna la chat
                         visualizzaMessaggi(screen, inObj, outObj);
                     } else {
                         System.out.println(" Errore!");
@@ -121,9 +141,12 @@ public class Client {
                     }
                     
                 } catch (SocketTimeoutException e) {
+                    // Protegge da eventuali blocchi se il server non risponde
                     System.out.println(" Timeout! Il server non risponde.");
                     System.out.print("\n\n'exit' per uscire | '1' per aggiornare >> ");
+
                 } catch (Exception e) {
+                    // Errore generico di comunicazione
                     System.out.println(" Errore di comunicazione!");
                     System.out.print("\n\n'exit' per uscire | '1' per aggiornare >> ");
                 }
@@ -137,13 +160,18 @@ public class Client {
         ClearScreen screen = new ClearScreen();
 
         try (
+            // Il client apre una socket verso il server
             Socket socket = new Socket("localhost", 5000);
+
+            // Stream di uscita e ingresso di oggetti serializzati
             ObjectOutputStream outObj = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream inObj = new ObjectInputStream(socket.getInputStream());
         ) {
 
+            // Timeout per evitare blocchi su readObject() in caso di server lento o disconnesso
             socket.setSoTimeout(5000); 
             
+            // Il server assegna un ID univoco a questo client
             int clientId = (int) inObj.readObject();
 
             int option;
@@ -165,10 +193,12 @@ public class Client {
                 switch(option) {
 
                     case 1:
+                        // Permette di creare nuove operazioni
                         inserisci(s, screen);
                         break;
 
                     case 2:
+                        // Stampa le operazioni non ancora inviate
                         screen.clear();
                         System.out.println("----- OPERAZIONI MEMORIZZATE -----");
 
@@ -185,6 +215,7 @@ public class Client {
                         break;
 
                     case 3:
+                        // Invio delle operazioni al server
                         if(listaOperazioni.isEmpty()) {
                             System.out.println("Nessuna operazione da inviare.\n\nPremi INVIO per continuare.");
                             s.nextLine();
@@ -192,32 +223,34 @@ public class Client {
                             screen.clear();
                             System.out.println("Operazioni inviate correttamente al server.");
 
-                            // Imposto l'indice della prima operazione
+                            // Salva l'indice dal quale iniziano i nuovi risultati
                             primaOperazione = ultimaOperazione;
 
-                            // Invio le operazioni al server
+                            // Invio di ogni singola operazione e ricezione risultato
                             for(Operazione op : listaOperazioni) {
 
-                                // Invia operazione
                                 outObj.writeObject(op);
                                 outObj.flush();
 
-                                // Riceve risultato
+                                // Il server risponde con una stringa risultato
                                 String risultato = (String) inObj.readObject();
 
-                                // Aggiungo il risultato alla lista
                                 listaRisultati.add(risultato);
                             }
 
-                            ultimaOperazione = listaRisultati.size(); // Imposto l'indice dell'ultima operazione
+                            // Aggiorna l’indice dell’ultimo risultato disponibile
+                            ultimaOperazione = listaRisultati.size();
 
+                            // Svuota la lista delle operazioni locali
                             listaOperazioni.clear();
 
                             System.out.println("\n\nPremi INVIO per continuare...");
                             s.nextLine();
                         }
                         break;
+
                     case 4:
+                        // Sezione per visualizzare i risultati delle operazioni
                         screen.clear();
 
                         if(listaRisultati.isEmpty()) {
@@ -225,27 +258,33 @@ public class Client {
                             s.nextLine();
                         } else {
                             System.out.println("----- RISULTATI MEMORIZZATI -----");
+
+                            // Mostra i risultati precedenti
                             if(primaOperazione != 0) {
                                 for(int i = 0; i < primaOperazione; i++) {
-                                    System.out.println(listaRisultati.get(i)); // Se la lista è vuota non entra nel ciclo (listaRisultati.isEmpty())
+                                    System.out.println(listaRisultati.get(i));
                                 }
                             } else {
                                 System.out.println("Nulla da mostrare.");
                             }
 
+                            // Mostra gli ultimi risultati
                             System.out.println("\n\n----- ULTIMI RISULTATI -----");
-                            for(int i = primaOperazione; i < listaRisultati.size(); i++) { // Stampo solo gli ultimi risultati salvati
-                                System.out.println(listaRisultati.get(i)); // Se la lista è vuota non entra nel ciclo (listaRisultati.isEmpty())
+                            for(int i = primaOperazione; i < listaRisultati.size(); i++) {
+                                System.out.println(listaRisultati.get(i));
                             }
                         }
 
                         System.out.println("\n\nPremi INVIO per continuare...");
                         s.nextLine();
                         break;
+
                     case 5:
+                        // Entra nella chat condivisa
                         screen.clear();
                         chat(s, screen, inObj, outObj, clientId);
                         break;
+
                     case 0:
                         System.out.println("Uscita...");
                         break;
