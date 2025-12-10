@@ -2,26 +2,38 @@
 
 ![Java](https://img.shields.io/badge/Language-Java-red) ![Version](https://img.shields.io/badge/Version-1.0-green)
 
-**Java Calc Client-Server** is a Java project that implements a simple client-server application. Clients can insert mathematical operations, send them to the server, and receive the results in real-time. Multiple clients can connect simultaneously, and each operation is handled in a separate thread.
+**Java Calc Client-Server** is a Java project implementing a concurrent client-server system.  
+Clients can insert mathematical operations, send them to the server, and receive results in real-time. Multiple clients can connect simultaneously, and each client is handled in a separate thread. In addition, clients can participate in a shared chat.
 
 ## ❗ Dependencies
-[![Java](https://img.shields.io/badge/Dependency-Java-blue?style=for-the-badge&logo=java)](https://www.java.com/)
+[![Java](https://img.shields.io/badge/Dependency-Java-blue?style=for-the-badge&logo=java)](https://www.java.com/) Version 14
 
 ## 🕹️ How It Works?
-- The **Server** listens on a specified port (default: 5000) and can handle multiple clients concurrently.  
-- **Clients** can:
-  - Insert arithmetic operations (addition, subtraction, multiplication, division).  
-  - View the list of operations locally.  
-  - Send operations to the server to receive results.  
-- Each operation is processed in a **separate thread** to allow concurrent execution.
+### Server
+- Listens on port `5000` by default.
+- Handles multiple clients concurrently using `ClientHandler` threads.
+- Computes results for arithmetic operations received from clients.
+- Maintains a shared buffer for chat messages using a synchronized queue.
+
+### Client
+- Connects to the server and receives a unique client ID.
+- Provides a console-based menu to:
+  - Insert arithmetic operations (`+`, `-`, `*`, `/`)  
+  - View operations stored locally  
+  - Send operations to the server and receive results  
+  - Participate in a shared chat
+- Maintains a local history of results, distinguishing between old and recent calculations.
+
+---
 
 ## ⚙️ Features
-- Supports basic arithmetic operations: `+`, `-`, `*`, `/`.  
-- Multithreaded server for handling multiple clients at once.  
-- Client-side interface using a simple console menu.  
-- Operations are stored locally on the client until they are sent to the server.  
+- **Arithmetic Operations:** addition, subtraction, multiplication, division.  
+- **Multithreading:** each client is managed in a separate thread on the server.  
+- **Concurrency Control:** server uses synchronized methods to manage access to shared chat buffer.  
+- **Client-Side Storage:** operations are stored locally until sent; results are kept for review.  
+- **Shared Chat:** multiple clients can send and receive messages without conflicts.  
+- **Serialization:** operations and messages are sent over the network as serializable Java objects.
 
-## 🔧 How To Run
-### On Windows
-1. Open the project folder.  
-2. Run `start.bat` to compile and launch the server and client.  
+---
+
+## 🗂️ Project Structure
