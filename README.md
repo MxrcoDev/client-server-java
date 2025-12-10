@@ -1,6 +1,6 @@
 ![header](https://capsule-render.vercel.app/api?type=waving&height=230&color=gradient&customColorList=7&text=Java%20Calc%20Client-Server&textBg=false&fontAlignY=40&reversal=false&animation=fadeIn)
 
-![Java](https://img.shields.io/badge/Language-Java-red) ![Version](https://img.shields.io/badge/Version-1.0-green)
+![Java](https://img.shields.io/badge/Language-Java-red) ![Version](https://img.shields.io/badge/Version-6.5-green)
 
 **Java Calc Client-Server** is a Java project implementing a concurrent client-server system.  
 Clients can insert mathematical operations, send them to the server, and receive results in real-time. Multiple clients can connect simultaneously, and each client is handled in a separate thread. In addition, clients can participate in a shared chat.
