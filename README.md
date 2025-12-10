@@ -7,7 +7,6 @@ Clients can insert mathematical operations, send them to the server, and receive
 
 ## ❗ Dependencies
 [![Java](https://img.shields.io/badge/Dependency-Java-blue?style=for-the-badge&logo=java)](https://www.java.com/) 
-Version 14
 
 ## 🕹️ How It Works?
 ### Server
@@ -25,8 +24,6 @@ Version 14
   - Participate in a shared chat
 - Maintains a local history of results, distinguishing between old and recent calculations.
 
----
-
 ## ⚙️ Features
 - **Arithmetic Operations:** addition, subtraction, multiplication, division.  
 - **Multithreading:** each client is managed in a separate thread on the server.  
@@ -35,6 +32,15 @@ Version 14
 - **Shared Chat:** multiple clients can send and receive messages without conflicts.  
 - **Serialization:** operations and messages are sent over the network as serializable Java objects.
 
----
+## 🔧 How To Run
+### On Windows
+1. Open the project folder.  
+2. Run `start.bat` to compile and launch the server and clients.  
+3. Follow the console menu to interact with the system.
 
-## 🗂️ Project Structure
+### On Linux / macOS
+1. Open the project folder.  
+2. Make sure `start.sh` is executable:  
+```bash
+chmod +x start.sh
+
