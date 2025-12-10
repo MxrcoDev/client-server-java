@@ -6,7 +6,8 @@
 Clients can insert mathematical operations, send them to the server, and receive results in real-time. Multiple clients can connect simultaneously, and each client is handled in a separate thread. In addition, clients can participate in a shared chat.
 
 ## ❗ Dependencies
-[![Java](https://img.shields.io/badge/Dependency-Java-blue?style=for-the-badge&logo=java)](https://www.java.com/) Version 14
+[![Java](https://img.shields.io/badge/Dependency-Java-blue?style=for-the-badge&logo=java)](https://www.java.com/) 
+Version 14
 
 ## 🕹️ How It Works?
 ### Server
